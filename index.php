@@ -1,3 +1,3 @@
 <?php
-echo"Ddfgfdgsfgfsdgs"; exit;
+echo"hello"; exit;
 ?>
