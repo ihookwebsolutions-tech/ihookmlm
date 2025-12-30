@@ -40,6 +40,15 @@ class MPaymentGatewayDetails
         return Payment::where('paymentsettings_id', $paymenthistory_mode)->first();
     }
 
+       public static function getPaymentGatewayDetailss($where = "")
+    {
+        $table = "ihook_paymentsettings_table";
+
+        $sql = "SELECT * FROM $table $where LIMIT 1";
+
+        return collect(DB::select($sql))->first();
+    }
+
     /**
      * Get all payment methods
      */

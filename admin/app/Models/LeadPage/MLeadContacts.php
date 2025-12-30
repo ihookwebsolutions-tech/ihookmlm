@@ -12,6 +12,7 @@ public static function getcurrencyformat()
 {
     // Fetch the first record with id = 1
     $record = currencyformat::find(1);
+    $record = currencyFormat::find(1);
 // dd($record);
     // Return the record
     return $record; // or return as JSON if for API: return response()->json($record);
@@ -72,5 +73,4 @@ public static function insertcurrency($request)
 return back()->with('success_message', 'Format added successfully!');
 
 }
-
 }
