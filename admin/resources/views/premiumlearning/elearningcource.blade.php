@@ -638,8 +638,7 @@
                                                 <div class="flex justify-end">
                                                     <div class="form-submit">
                                                         <button type="button" onclick="submitlessioninsertcourse()"
-                                                            class="px-5 py-2.5 me-2 mb-2 rounded bg-neutral-800 text-white dark:bg-neutral-100 dark:text-black transition-all duration-300 shadow-md hover:scale-105"
->Update</button>
+                                                            class="px-5 py-2.5 me-2 mb-2 rounded bg-neutral-800 text-white dark:bg-neutral-100 dark:text-black transition-all duration-300 shadow-md hover:scale-105">Update</button>
                                                     </div>
                                                 </div>
                                             {{--  </form>  --}}
@@ -913,7 +912,7 @@
                                         </div>
 
                                         <!-- Video -->
-                                        {{--  <h2 id="accordion-heading-3">
+                                       <h2 id="accordion-heading-3">
                                             <button type="button"
                                                 class="flex items-center justify-between w-full p-5 font-medium text-left border border-neutral-200 focus:ring-1 focus:ring-neutral-200 text-black dark:text-white"
                                                 data-accordion-target="#accordion-body-3" aria-expanded="false"
@@ -950,7 +949,7 @@
                                                         class="bg-neutral-50 dark:bg-neutral-900 text-black dark:text-white text-sm rounded-md border border-neutral-200 dark:border-neutral-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-500 dark:focus:border-blue-500 w-full p-2.5 placeholder-neutral-500 dark:placeholder-neutral-400" value="00:00">
                                                 </div>
                                             </div>
-                                        </div>  --}}
+                                        </div>
 
                                         <!-- Plan -->
                                         <h2 id="accordion-heading-4">
@@ -993,11 +992,11 @@
                                                         </div>
                                                     </div>
                                                 </label>
-                                                {{--  <select id="user_type" name="user_type"
+                                               <select id="user_type" name="user_type"
                                                     class="text-sm rounded-lg focus:ring-neutral-500 focus:border-neutral-500 block w-full p-2.5 dark:bg-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-800  dark:placeholder-neutral-400 dark:focus:ring-neutral-500 dark:focus:border-neutral-500">
                                                     <option value="1">All User</option>
                                                     <option value="2">User</option>
-                                                </select>  --}}
+                                                </select>
 
                                                 {{--  <select id="matrix_id" name="matrix_id"
                                                     class="text-sm rounded-lg focus:ring-neutral-500 focus:border-neutral-500 block w-full p-2.5 dark:bg-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-800  dark:placeholder-neutral-400 dark:focus:ring-neutral-500 dark:focus:border-neutral-500">
@@ -1101,8 +1100,6 @@
 
 <script src="{{ asset('/js/cropper.min.js') }}"></script>
 <script>
-
-
     document.addEventListener("DOMContentLoaded", function() {
         document.getElementById("title").addEventListener("input", function() {
             // This regex removes any character that is not a letter, number, or space.
@@ -1137,182 +1134,215 @@
         }
     });
 
-    function submitcourse() {
-        var x = document.getElementById("title").value;
-        if (x == "") {
-            document.getElementById("error").innerHTML = "{{ __('This field is required') }}";
-        } else {
-            document.getElementById("error").innerHTML = "";
-        }
+function submitcourse() {
+    var x = document.getElementById("title").value;
+    if (x == "") {
+        document.getElementById("error").innerHTML = "{{ __('This field is required') }}";
+        return;
+    } else {
+        document.getElementById("error").innerHTML = "";
+    }
 
-        // Perform Ajax call without jQuery (replacing jQuery AJAX)
-        var formData = new FormData();
-        formData.append('title', x);
+    // Get CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-        fetch("{{$_ENV['BCPATH']}}/elearning/checktitle", {
-            method: "POST",
-            body: formData
-        })
-        .then(response => response.text())
-        .then(data => {
-            document.getElementById("checktitle").value = data;
-        })
-        .catch(error => console.error("Error in checking title:", error));
+    // First: Check title uniqueness
+    var formData = new FormData();
+    formData.append('title', x);
+
+    fetch("{{$_ENV['BCPATH']}}/elearning/checktitle", {
+        method: "POST",
+        headers: {
+            'X-CSRF-TOKEN': csrfToken  // Add this
+        },
+        body: formData
+    })
+    .then(response => response.text())
+    .then(data => {
+        document.getElementById("checktitle").value = data;
 
         var checktitle = document.getElementById("checktitle").value;
-
         if (checktitle > 0) {
             document.getElementById("error1").innerHTML = "{{ __('Title Already exists') }}";
         } else {
             document.getElementById("error1").innerHTML = "";
         }
+    })
+    .catch(error => console.error("Error in checking title:", error));
 
-        var banner = document.getElementById("banner").value;
-        if (banner == "") {
-            document.getElementById("error2").innerHTML = "{{ __('This field is required') }}";
-        } else {
-            document.getElementById("error2").innerHTML = "";
-        }
-
-        var description = document.getElementById("description").value;
-        if (description == "") {
-            document.getElementById("error6").innerHTML = "{{ __('This field is required') }}";
-        } else {
-            document.getElementById("error6").innerHTML = "";
-        }
-
-        // Bootstrap Switch handling (native JS equivalent)
-        var c_status = document.getElementById('course_status').checked ? 1 : 0;
-        document.getElementById('status').value = c_status;
-
-        var titleerror = document.getElementById("error").innerHTML;
-        var titleerror1 = document.getElementById("error1").innerHTML;
-        var bannererror1 = document.getElementById("error2").innerHTML;
-        var descriptionerror6 = document.getElementById("error6").innerHTML;
-        if (titleerror == '' && descriptionerror6 == '') {;
-
-            var form_data = new FormData();
-            var status = document.getElementById("status").value;
-            form_data.append("title", x);
-            form_data.append("description", description);
-            form_data.append("course_status", status);
-
-            form_data.append('banner', document.getElementById('image_crop_file_hidd').value);
-
-            fetch("{{$_ENV['BCPATH']}}/elearning/insertcourse", {
-                method: "POST",
-                body: form_data
-            })
-            .then(response => response.text())
-            .then(data => {
-                document.getElementById('contact-info-tab').disabled = false;
-                Swal.fire({
-                    title: '{{ __("Description Updated Successfully") }}', // Static or dynamic value
-                    text: '{{ __("Your action was successful.") }}', // Static or dynamic value
-                    icon: 'success',
-                    confirmButtonText: '{{ __("Okay") }}',
-                    customClass: {
-                        popup: 'bg-white rounded-lg shadow-lg', // Customize popup style
-                        title: 'text-xl font-semibold text-black', // Customize title style
-                        text: 'text-sm text-black', // Customize text style
-                        confirmButton: 'bg-black text-white hover:bg-neutral-800 font-semibold py-2 px-4 rounded-lg', // Customize button style
-                        cancelButton: 'bg-neutral-200 text-black hover:bg-neutral-100 font-semibold py-2 px-4 rounded-lg',
-                    }
-                });
-                document.getElementById('course_id').value = data;
-                document.getElementById("submitdesc").classList.add('hidden');
-            })
-            .catch(error => console.error("Error submitting course:", error));
-        }
+    // Validate other fields
+    var banner = document.getElementById("image_crop_file_hidd").value;
+    if (banner == "") {
+        document.getElementById("error2").innerHTML = "{{ __('This field is required') }}";
+    } else {
+        document.getElementById("error2").innerHTML = "";
     }
 
-    function submitlessioninsertcourse() {
-        let totaltitle = document.getElementById("totaltitle").value.trim();
-        let errorElement = document.getElementById("error3");
+    var description = document.getElementById("description").value;
+    if (description == "") {
+        document.getElementById("error6").innerHTML = "{{ __('This field is required') }}";
+    } else {
+        document.getElementById("error6").innerHTML = "";
+    }
 
-        // Validate Title
-        if (totaltitle == "") {
-            errorElement.innerHTML = "{{ __('This field is required') }}";
-            return;
-        } else {
-            errorElement.innerHTML = "";
-        }
+    // Get status
+    var c_status = document.getElementById('course_status').checked ? 1 : 0;
+    document.getElementById('status').value = c_status;
 
+    // Final validation
+    var titleerror = document.getElementById("error").innerHTML;
+    var titleerror1 = document.getElementById("error1").innerHTML;
+    var bannererror1 = document.getElementById("error2").innerHTML;
+    var descriptionerror6 = document.getElementById("error6").innerHTML;
 
-        let formData = new FormData();
-        formData.append("totaltitle", totaltitle);
+    if (titleerror == '' && titleerror1 == '' && bannererror1 == '' && descriptionerror6 == '') {
 
-        // Collecting subtitles dynamically
-        let subtitles = document.querySelectorAll('.subtitlelession');
-        subtitles.forEach((item, index) => {
-            let subtitleValue = item.value.trim();
-            formData.append(`subtitle${index + 1}`, subtitleValue);
-        });
+        var form_data = new FormData();
+        form_data.append("title", x);
+        form_data.append("description", description);
+        form_data.append("course_status", c_status);
+        form_data.append('banner', document.getElementById('image_crop_file_hidd').value);
 
-        let id = document.getElementById("course_id").value;
-
-        fetch(`{{$_ENV['BCPATH']}}/elearning/insertsubcourse/${id}`, {
+        fetch("{{$_ENV['BCPATH']}}/elearning/insertcourse", {
             method: "POST",
-            body: formData
+            headers: {
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: form_data
         })
-        .then(response => response.text())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.text();
+        })
         .then(data => {
+            document.getElementById('contact-info-tab').disabled = false;
+            document.getElementById('course_id').value = data;
+            document.getElementById("submitdesc").classList.add('hidden');
+
+            Swal.fire({
+                title: '{{ __("Description Updated Successfully") }}',
+                text: '{{ __("Your action was successful.") }}',
+                icon: 'success',
+                confirmButtonText: '{{ __("Okay") }}',
+                customClass: {
+                    popup: 'bg-white rounded-lg shadow-lg',
+                    title: 'text-xl font-semibold text-black',
+                    text: 'text-sm text-black',
+                    confirmButton: 'bg-black text-white hover:bg-neutral-800 font-semibold py-2 px-4 rounded-lg',
+                }
+            });
+        })
+        .catch(error => {
+            console.error("Error submitting course:", error);
+            Swal.fire({
+                title: "Error",
+                text: "Failed to save course. Please try again.",
+                icon: "error",
+                confirmButton: 'bg-black text-white hover:bg-neutral-800 font-semibold py-2 px-4 rounded-lg',
+
+            });
+        });
+    }
+}
+
+function submitlessioninsertcourse() {
+    let totaltitle = document.getElementById("totaltitle").value.trim();
+    let errorElement = document.getElementById("error3");
+
+    // Validation
+    if (totaltitle === "") {
+        errorElement.innerHTML = "This field is required";
+        return;
+    } else {
+        errorElement.innerHTML = "";
+    }
+
+    let formData = new FormData();
+
+    formData.append("totaltitle", totaltitle);
+
+    document.querySelectorAll('.subtitlelession').forEach((item, index) => {
+        let val = item.value.trim();
+        if (val !== "") {
+            formData.append(`subtitle${index + 1}`, val);
+        }
+    });
+
+    let id = document.getElementById("course_id").value;
+
+    fetch(`/admin/elearning/insertsubcourse/${id}`, {
+        method: "POST",
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        },
+        body: formData
+    })
+    .then(async response => {
+        const data = await response.json();
+        if (!response.ok) {
+            throw data;
+        }
+        return data;
+    })
+    .then(data => {
+        Swal.fire({
+            title: 'Description Updated Successfully',
+            text: data.message || 'Your action was successful.',
+            icon: 'success',
+            confirmButtonText: 'Okay',
+            customClass: {
+                popup: 'bg-white rounded-lg shadow-lg',
+                title: 'text-xl font-semibold text-black',
+                text: 'text-sm text-black',
+                confirmButton:
+                    'bg-black text-white hover:bg-neutral-800 font-semibold py-2 px-4 rounded-lg'
+            }
+        });
+    })
+      .then(data => {
             document.getElementById('my-sites-tab').disabled = false;
             showlession(); // Call function after success
         })
-        .catch(error => console.error("Error:", error))
-        .finally(() => {
+    .catch(error => {
+        console.error("Insert error:", error);
+        Swal.fire({
+            title: 'Error',
+            text: error.message || 'Failed to save subcourses. Please try again.',
+            icon: 'error',
+            confirmButtonText: 'Okay'
         });
-    }
+    });
+}
+function showlession() {
+    let id = document.getElementById("course_id").value;
 
-    function showlession() {
-
-        let id = document.getElementById("course_id").value;
-
-        fetch(`{{$_ENV['BCPATH']}}/elearning/showlession/${id}`, {
-            method: "GET"
-        })
-        .then(response => response.text())
-        .then(data => {
-            let noLevelInput = document.getElementById("nolevelinput");
-            if (noLevelInput) {
-                noLevelInput.innerHTML = data;
-            } else {
-                console.error("Error: Element with ID 'nolevelinput' not found.");
-            }
-
-             // Initialize accordion functionality
-             document.querySelectorAll("[data-accordion-target]").forEach(button => {
-                button.addEventListener('click', function () {
-                    const target = document.querySelector(this.getAttribute('data-accordion-target'));
-                    target.classList.toggle('hidden');
-                });
-            });
-
-            // Initialize tab switching functionality
-            document.querySelectorAll('.tab-button').forEach(button => {
-                button.addEventListener('click', function (e) {
-                    // Prevent default form submission or page refresh behavior
-                    e.preventDefault();
-
-                    const tabGroup = this.closest('ul').getAttribute('data-tab-group');
-                    const tabName = this.getAttribute('data-tab');
-
-                    // Hide all tab content in the current group
-                    document.querySelectorAll(`#${tabGroup} .tab-content`).forEach(tabContent => {
-                        tabContent.classList.add('hidden');
-                    });
-
-                    // Show the clicked tab content
-                    document.getElementById(tabName).classList.remove('hidden');
-                });
-            });
-        })
-        .catch(error => console.error("Error:", error))
-        .finally(() => {
+    fetch(`/admin/elearning/showlession/${id}`, {
+        method: "GET",
+        headers: { 'Accept': 'text/html' }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to load lessons');
+        }
+        return response.text();
+    })
+    .then(html => {
+        document.getElementById("nolevelinput").innerHTML = html;
+    })
+    .catch(error => {
+        console.error("Lesson load error:", error);
+        Swal.fire({
+            title: 'Error',
+            text: 'Failed to load lesson content.',
+            icon: 'error'
         });
-    }
-    function submitLesson(courseid, lessonid, type) {
+    });
+}
+
+function submitLesson(courseid, lessonid, type) {
         let formData = new FormData();
 
         // Collect lesson values
@@ -1652,7 +1682,7 @@
                 return JSON.parse(text); // Try to parse JSON
             } catch (error) {
                 console.warn("Warning: Response is not valid JSON:", text);
-                return {}; // Return empty object if JSON is invalid
+                return {};
             }
         })
         .then(data => {
@@ -1689,165 +1719,122 @@
         }
     });
 
+function submitfaqtotal() {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const courseId = document.getElementById("course_id").value.trim();
 
-    function submitfaqtotal() {
-        var formData = new FormData();
-        var id = document.getElementById("course_id").value.trim();
+    const formData = new FormData();
+    formData.append('_token', csrfToken);
 
-        document.querySelectorAll(".subans").forEach((item, index) => {
-            formData.append(`faqanswer${index + 1}`, item.value);
-        });
+    // ===== New FAQs =====
+    document.querySelectorAll(".subquest").forEach((q, i) => {
+        const a = document.querySelectorAll(".subans")[i];
+        if (q.value.trim() && a.value.trim()) {
+            formData.append('faq_question[]', q.value.trim());
+            formData.append('faq_answer[]', a.value.trim());
+        }
+    });
 
-        document.querySelectorAll(".subquest").forEach((item, index) => {
-            formData.append(`faqquestion${index + 1}`, item.value);
-        });
+    // ===== Existing FAQs =====
+    document.querySelectorAll('input[name="existing_faq_id[]"]').forEach((idEl, i) => {
+        const qEl = document.querySelectorAll('textarea[name="existing_faq_question[]"]')[i];
+        const aEl = document.querySelectorAll('textarea[name="existing_faq_answer[]"]')[i];
+        formData.append('existing_faq_id[]', idEl.value);
+        formData.append('existing_faq_question[]', qEl.value);
+        formData.append('existing_faq_answer[]', aEl.value);
+    });
 
-        fetch(`{{$_ENV['BCPATH']}}/elearning/insertcourseansfaq/${id}`, {
-            method: "POST",
-            body: formData
-        })
-        .then(response => response.text())
-        .then(data => {
-            document.getElementById('social-media-tab').disabled = false;
-            document.getElementById('add_price_button').disabled = false;
-            document.getElementById('duration_button').disabled = false;
-            document.getElementById('plan_button').disabled = false;
-            document.getElementById('subextra').disabled = false;
-            Swal.fire({
-                title: "{{ __('FAQ Updated Successfully') }}",
+    fetch(`/admin/elearning/insertcourseansfaq/${courseId}`, {
+        method: "POST",
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire('Success!',
+                 data.message, 'success',
                 icon: 'success',
-                customClass: {
-                    popup: "bg-white rounded-lg shadow-lg",
-                    title: "text-xl font-semibold text-black",
-                    text: "text-sm text-black",
-                    confirmButton: "bg-black text-white hover:bg-neutral-800 font-semibold py-2 px-4 rounded-lg"
-                }
-            }).then(() => {
+                    customClass: {
+                        popup: "bg-white rounded-lg shadow-lg",
+                        title: "text-xl font-semibold text-black",
+                        text: "text-sm text-black",
+                        confirmButton: "bg-black text-white hover:bg-neutral-800 font-semibold py-2 px-4 rounded-lg"
+                    }
+            ).then(() => {
                 showsublession();
             });
-        })
-        .catch(error => console.error("Error:", error));
-    }
+        } else {
+            alert("Error: " + data.message);
+        }
+    })
+    .catch(err => alert("Network error: " + err.message));
+}
 
     function showsublession() {
-        var id = document.getElementById("course_id").value;
+                var id = document.getElementById("course_id").value;
 
-        fetch(`{{$_ENV['BCPATH']}}/elearning/showsublession/${id}`, {
-            method: "GET"
-        })
-        .then(response => response.text())
-        .then(data => {
-            let container = document.getElementById("cont");
-
-            if (container) {
-                container.insertAdjacentHTML("beforeend", data);
-            }
-            // else {
-            //    console.error("Error: Element with ID 'cont' not found.");
-            // }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-        });
-    }
-
-
-
-    function submitfaq() {
-        let faqvalues = document.getElementById("faqvalues").value;
-        let errorElement = document.getElementById("error10");
-
-        // Validate input field
-        if (!faqvalues) {
-            errorElement.innerHTML = "{{ __('This field is required') }}";
-            return; // Stop execution if validation fails
-        } else {
-            errorElement.innerHTML = "";
-        }
-
-        // Create FormData object
-        let formData = new FormData();
-        formData.append("faqvalues", faqvalues);
-
-        let id = document.getElementById("course_id").value.trim();
-        let url = `{{$_ENV['BCPATH']}}/elearning/insertcoursefaq/${id}`;
-
-        // Send request using Fetch API
-        fetch(url, {
-            method: "POST",
-            body: formData
-        })
-        .then(response => response.text()) // Assuming response is text
-        .then(data => {
-            document.getElementById("faq_id").value = data;
-            document.getElementById("faqvalues").value = ""; // Clear input field
-            showlessionfaq(); // Call function after success
-        })
-        .catch(error => console.error("Error:", error));
-    }
-
-
-    function showlessionfaq() {
-
-        let id = document.getElementById("course_id").value.trim();
-        let url = `{{$_ENV['BCPATH']}}/elearning/showcoursefaq/${id}`;
-
-        fetch(url, { method: "GET" })
-            .then(response => response.text()) // Assuming response is HTML content
-            .then(data => {
-                document.getElementById("contentfaq").innerHTML = data;
-            })
-            .catch(error => {
-                console.error("Error:", error);
-            });
-    }
-
-
-    function removefaq(id, fid) {
-        Swal.fire({
-            title: "{{ __('Do you want to delete?') }}",
-            text: "",
-            icon: "warning",
-            width: 400,
-            heightAuto: false,
-            padding: "2.5rem",
-            buttonsStyling: false,
-            showCancelButton: true,
-            confirmButtonText: "{{ __('Yes, sure') }}",
-            cancelButtonText: "Cancel",
-            customClass: {
-                popup: "bg-white rounded-lg shadow-lg",
-                title: "text-xl font-semibold text-black",
-                text: "text-sm text-black",
-                confirmButton: "bg-black text-white hover:bg-neutral-800 font-semibold py-2 px-4 rounded-lg",
-                cancelButton: "bg-neutral-200 text-black hover:bg-red-600 font-semibold py-2 px-4 rounded-lg"
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
-
-                fetch(`{{$_ENV['BCPATH']}}/elearning/delete/${id}/${fid}`, {
+                fetch(`{{$_ENV['BCPATH']}}/elearning/showsublession/${id}`, {
                     method: "GET"
                 })
                 .then(response => response.text())
-                .then(() => {
-                    Swal.fire({
-                        title: "{{ __('FAQ Deleted') }}",
-                        icon: "success",
-                        customClass: {
-                            popup: "bg-white rounded-lg shadow-lg",
-                            title: "text-xl font-semibold text-black",
-                            text: "text-sm text-black",
-                            confirmButton: "bg-black text-white hover:bg-neutral-800 font-semibold py-2 px-4 rounded-lg"
-                        }
-                    }).then(() => {
-                        window.location = `{{$_ENV['BCPATH']}}/elearning/editelearning/${id}`;
-                    });
+                .then(data => {
+                    let container = document.getElementById("cont");
+
+                    if (container) {
+                        container.insertAdjacentHTML("beforeend", data);
+                    }
+                    // else {
+                    //    console.error("Error: Element with ID 'cont' not found.");
+                    // }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
                 });
-            } else {
+            }
+
+    function submitfaq() {
+        const faqvalues = document.getElementById("faqvalues").value.trim();
+        const errorElement = document.getElementById("error10");
+        const courseIdInput = document.getElementById("course_id");
+
+        if (!faqvalues) {
+            errorElement.innerHTML = "This field is required";
+            return;
+        }
+        errorElement.innerHTML = "";
+
+        // Ensure we use only the numeric course ID
+        const courseId = courseIdInput?.value?.trim() || "1";
+
+        const url = `{{$_ENV['BCPATH']}}/elearning/insertcoursefaq/${courseId}`;
+
+        const formData = new FormData();
+        formData.append("faqvalues", faqvalues);
+
+        fetch(url, {
+            method: "POST",
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(async response => {
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || `Server error ${response.status}`);
+            return data;
+        })
+        .then(data => {
+            if (data.success) {
+                // Set the numeric course_id in input (important!)
+                if (courseIdInput) courseIdInput.value = data.course_id;
+
+                document.getElementById("faqvalues").value = "";
+                showlessionfaq(); // reload FAQs
                 Swal.fire({
-                    title: "{{ __('Cancelled') }}",
-                    text: "{{ __('Your record is safe') }}",
-                    icon: "error",
+                     title: "{{ __('FAQ stored successfully') }}",
+                    icon: 'success',
                     customClass: {
                         popup: "bg-white rounded-lg shadow-lg",
                         title: "text-xl font-semibold text-black",
@@ -1855,11 +1842,89 @@
                         confirmButton: "bg-black text-white hover:bg-neutral-800 font-semibold py-2 px-4 rounded-lg"
                     }
                 });
+            } else {
+                Swal.fire('Error', data.message, 'error');
             }
+        })
+        .catch(err => {
+            console.error(err);
+            Swal.fire('Error', err.message || 'Failed to add FAQ', 'error');
         });
-
-        return false;
     }
+
+    function showlessionfaq() {
+        let id = document.getElementById("course_id")?.value?.trim() || "1";
+        let url = `{{$_ENV['BCPATH']}}/elearning/showcoursefaq/${id}`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById("contentfaq").innerHTML = data.html;
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+    }
+
+   function removefaq(course_id, faq_id) {
+    Swal.fire({
+        title: "{{ __('Do you want to delete?') }}",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "{{ __('Yes, sure') }}",
+        cancelButtonText: "{{ __('Cancel') }}",
+        customClass: {
+            confirmButton: "bg-red-600 text-white hover:bg-red-700 font-semibold py-2 px-4 rounded-lg",
+            cancelButton: "bg-neutral-300 text-black hover:bg-neutral-400 font-semibold py-2 px-4 rounded-lg"
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            if (!csrfToken) {
+                alert("CSRF token missing!");
+                return;
+            }
+
+            fetch(`{{ $_ENV['BCPATH'] }}/elearning/delete/${course_id}/${faq_id}`, {
+                method: "POST",  // POST must!
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken  // Important!
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json(); // expect JSON response
+            })
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: "{{ __('FAQ Deleted') }}",
+                        text: data.message,
+                        icon: "success",
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        showsublession(); // or your FAQ refresh function
+
+                    });
+                } else {
+                    Swal.fire("Error", data.message || "Delete failed", "error");
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                Swal.fire("Error", "Something went wrong! Check console.", "error");
+            });
+        }
+    });
+}
 
     function submitannouncement() {
         var announcement = document.getElementById("announcement").value;
@@ -1950,15 +2015,7 @@
             }
         });
 
-
-
-
-
-
-
-
-
-        document.getElementById("totaltitle").addEventListener("input", function () {
+   document.getElementById("totaltitle").addEventListener("input", function () {
             const subtitleCount =  this.value.trim();
             const accordionContainer = document.getElementById('accordion-container');
 
@@ -1970,6 +2027,7 @@
                     for (let i = 1; i <= subtitleCount; i++) {
                         const sectionHTML = `
                             <div id="accordion-item-${i}" class="mb-3">
+
                                 <h2>
                                     <button type="button"
                                         class="flex flex-col items-start w-full p-4 font-medium text-left text-black bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 rounded-lg focus:ring-0 transition-all"
@@ -2068,7 +2126,6 @@
                 });
             });
         });
-
 
 
         // Crop and update the preview image

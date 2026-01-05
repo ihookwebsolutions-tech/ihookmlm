@@ -16,26 +16,21 @@ use Illuminate\Http\JsonResponse;
 class PackageLevelCommissionController extends Controller
 {
 
-    // public function __construct()
-    // {
-    //     $this->middleware('auth:admin');
-    // }
-
     public static function showPackageLevelCommission(Request $request, $matrix_id,$packageId)
         {
             try {
             $output['package_commission_settings'] = MPackageLevelCommission::showPackageLevelCommission($matrix_id,$packageId);
 
-    
+
             return response()->json($output);
 
         } catch (\Exception $e) {
 
              return response()->json(['error' => $e->getMessage()], 500);
-          
-            
+
+
         }
-    
+
     }
 
     public function validatePackageLevelCommission(Request $request)
@@ -55,14 +50,14 @@ class PackageLevelCommissionController extends Controller
 
        public static function deletePackageLevelCommission(Request $request)
     {
-   
+
         try {
-           
+
             // Perform deletion
             MPackageLevelCommission::deletePackageLevelCommission($request);
 
         } catch (Exception $e) {
-           
+
             return response()->json(['error' => $e->getMessage()], 500);
         }
 

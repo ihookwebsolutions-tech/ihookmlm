@@ -22,7 +22,7 @@ class MPremiumLearningLessonUpdate
         $lesson_status        = $request->input('edit_lesson_status');
         $totaltitleone        = $request->input('totaltitleone', 0);
 
-        $created_by = Auth::guard('admin')->id();
+        $created_by = 1;
 
         DB::table(config('ihook.prefix', '') . 'premium_courses_lesson_path')
             ->where('course_id', $course_id)

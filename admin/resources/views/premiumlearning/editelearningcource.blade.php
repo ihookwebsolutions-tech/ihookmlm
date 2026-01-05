@@ -1472,74 +1472,158 @@
             const modal = new Modal(targetEl, options);
             modal.show();
 
-            document.getElementById("totaltitleone").addEventListener("input", function () {
-                let totallevel = document.getElementById("totaltitleone").value;
-                let noLevelInputOne = document.getElementById("nolevelinputone");
+document.getElementById("totaltitle").addEventListener("input", function () {
+    const subtitleCount = this.value.trim();
+    const accordionContainer = document.getElementById('accordion-container');
 
-                if (totallevel !== "") {
-                    let numericTotal = parseInt(totallevel, 10);
-                    if (numericTotal > 0 && numericTotal <= 50) {
-                        let levelInputTest = "";
-                        for (let i = 1; i <= numericTotal; i++) {
-                            levelInputTest += `
-                            <div class="mb-5">
-                                <label for="video_mode" class="block mb-2 text-sm font-medium text-black dark:text-white">{{ __('Embed Video Name ${i}') }}</label>
-                                <input type="text" name="edit_embed_name${i}" id="edit_embed_name${i}"class="text-sm rounded-lg focus:ring-neutral-500 focus:border-neutral-500 block w-full p-2.5 dark:bg-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-800  dark:placeholder-neutral-400 dark:focus:ring-neutral-500 dark:focus:border-neutral-500">
-                                <div class="submiterrors">
-                                    <a class="col error5 text-red-500"></a>
-                                </div>
-                            </div>
+    accordionContainer.innerHTML = ""; // Clear previous
 
-                            <div class="mb-5">
-                                <label for="video_mode" class="block mb-2 text-sm font-medium text-black dark:text-white">{{ __('Embed Video ${i}') }}</label>
-                                <input type="url" name="edit_embed_video${i}" id="edit_embed_video${i}" class="text-sm rounded-lg focus:ring-neutral-500 focus:border-neutral-500 block w-full p-2.5 dark:bg-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-800  dark:placeholder-neutral-400 dark:focus:ring-neutral-500 dark:focus:border-neutral-500">
-                            </div>`;
-                        }
-                        noLevelInputOne.innerHTML = levelInputTest;
-                    } else if (numericTotal > 50) {
-                        Swal.fire({
-                            title: "{{ __('LEVEL_BELOW_THE_VALUE') }}",
-                            text: "{{ __('ADDRANK') }}",
-                            icon: "warning",
-                            width: 400,
-                            heightAuto: false,
-                            padding: "2.5rem",
-                            buttonsStyling: false,
-                            showCancelButton: false,
-                            confirmButtonText: "{{ __('OK') }}",
-                            customClass: {
-                                popup: 'bg-white rounded-lg shadow-lg',
-                                title: 'text-xl font-semibold text-black',
-                                text: 'text-sm text-black',
-                                confirmButton: 'bg-black text-white hover:bg-neutral-800 font-semibold py-2 px-4 rounded-lg',
-                                cancelButton: 'bg-neutral-200 text-black hover:bg-neutral-100 font-semibold py-2 px-4 rounded-lg'
-                            }
-                        });
-                    } else {
-                        Swal.fire({
-                            title: "{{ __('INVALID_LEVEL') }}",
-                            text: "{{ __('ADDRANK') }}",
-                            icon: "warning",
-                            width: 400,
-                            heightAuto: false,
-                            padding: "2.5rem",
-                            buttonsStyling: false,
-                            showCancelButton: false,
-                            confirmButtonText: "{{ __('OK') }}",
-                            customClass: {
-                                popup: 'bg-white rounded-lg shadow-lg',
-                                title: 'text-xl font-semibold text-black',
-                                text: 'text-sm text-black',
-                                confirmButton: 'bg-black text-white hover:bg-neutral-800 font-semibold py-2 px-4 rounded-lg',
-                                cancelButton: 'bg-neutral-200 text-black hover:bg-neutral-100 font-semibold py-2 px-4 rounded-lg'
-                            }
-                        });
-                    }
-                } else {
-                    noLevelInputOne.innerHTML = "";
-                }
+    if (subtitleCount === "") return;
+
+    const count = parseInt(subtitleCount, 10);
+    if (isNaN(count) || count <= 0) return;
+
+    if (count > 50) {
+        Swal.fire({
+            title: "{{ __('Level must be below 50') }}",
+            icon: "warning",
+            confirmButtonText: "OK"
+        });
+        this.value = "";
+        return;
+    }
+
+    for (let i = 1; i <= count; i++) {
+        const sectionHTML = `
+            <div id="accordion-item-${i}" class="mb-3">
+                <h2>
+                    <button type="button"
+                        class="flex flex-col items-start w-full p-4 font-medium text-left text-black bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 rounded-lg focus:ring-0 transition-all"
+                        data-accordion-target="#accordion-body-${i}" aria-expanded="false">
+                        <div class="flex items-center justify-between w-full">
+                            <span>Section ${i}</span>
+                            <svg class="w-5 h-5 shrink-0 transition-transform duration-200" fill="currentColor"
+                                viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd"
+                                    d="M5.23 7.21a.75.75 0 011.06 0L10 10.94l3.71-3.73a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.27a.75.75 0 010-1.06z"
+                                    clip-rule="evenodd"></path>
+                            </svg>
+                        </div>
+                        <input placeholder="Section title (required)"
+                               id="subtitle${i}" name="subtitle${i}"
+                               class="w-full mt-2 p-2 text-sm text-black dark:text-white bg-white border-2 border-dotted border-neutral-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-all subtitlelession" />
+                    </button>
+                </h2>
+
+                <div id="accordion-body-${i}" class="hidden p-4 border border-t-0 border-neutral-200 rounded-b-xl bg-neutral-50">
+                    <!-- Tabs - Hidden until section is opened -->
+                    <ul class="hidden flex flex-wrap gap-2 text-sm font-medium text-center mb-4" id="tab-list-${i}" data-tab-group="tabs-${i}">
+                        <li>
+                            <button type="button" class="tab-button px-4 py-2 rounded-lg bg-neutral-100 hover:bg-neutral-200"
+                                    data-tab="lesson-${i}" data-section="${i}">
+                                Lesson
+                            </button>
+                        </li>
+                        <li>
+                            <button type="button" class="tab-button px-4 py-2 rounded-lg bg-green-100 hover:bg-green-200"
+                                    data-tab="quiz-${i}" data-section="${i}">
+                                Quiz
+                            </button>
+                        </li>
+                        <li class="hidden">
+                            <button type="button" class="tab-button px-4 py-2 rounded-lg bg-yellow-100" data-tab="assignment-${i}">
+                                Assignment
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Add Button (default: Lesson) -->
+                    <div id="add-button-${i}" class="text-right mb-5">
+                        <button type="button"
+                            onclick="addlession(document.getElementById('course_id').value, '${i}', 'lesson')"
+                            class="px-5 py-2.5 text-white bg-blue-600 rounded-lg hover:bg-blue-700 font-medium">
+                            + Add Lesson
+                        </button>
+                    </div>
+
+                    <!-- Placeholder Content -->
+                    <div id="lesson-${i}" class="tab-content">
+                        <p class="text-sm text-neutral-500">Click "+ Add Lesson" to add content.</p>
+                    </div>
+                    <div id="quiz-${i}" class="tab-content hidden">
+                        <p class="text-sm text-neutral-500">Click "+ Add Quiz" to add a quiz.</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        accordionContainer.insertAdjacentHTML('beforeend', sectionHTML);
+    }
+
+    // === Accordion Open/Close + Show Tabs ===
+    document.querySelectorAll('[data-accordion-target]').forEach(button => {
+        button.addEventListener('click', function () {
+            const targetId = this.getAttribute('data-accordion-target');
+            const body = document.querySelector(targetId);
+            const svg = this.querySelector('svg');
+            const tabList = body.querySelector('ul[id^="tab-list-"]');
+
+            body.classList.toggle('hidden');
+            svg.classList.toggle('rotate-180');
+
+            // When opening section → show tabs
+            if (!body.classList.contains('hidden')) {
+                if (tabList) tabList.classList.remove('hidden');
+            }
+        });
+    });
+
+    // === Tab Click: Change Button & Highlight Tab ===
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', function () {
+            const sectionId = this.dataset.section;
+            const tabName = this.dataset.tab;
+
+            // Highlight active tab
+            document.querySelectorAll(`#tab-list-${sectionId} .tab-button`).forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white', 'bg-green-600', 'hover:bg-green-700');
+                btn.classList.add('bg-neutral-100', 'hover:bg-neutral-200');
             });
 
+            if (tabName.includes('quiz')) {
+                this.classList.remove('bg-neutral-100', 'hover:bg-neutral-200');
+                this.classList.add('bg-green-600', 'text-white', 'hover:bg-green-700');
+            } else {
+                this.classList.remove('bg-neutral-100', 'hover:bg-neutral-200');
+                this.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+            }
+
+            // Show corresponding content
+            document.querySelectorAll(`#accordion-body-${sectionId} > .tab-content`).forEach(c => c.classList.add('hidden'));
+            document.getElementById(tabName).classList.remove('hidden');
+
+            // Update Add Button
+            const addContainer = document.getElementById(`add-button-${sectionId}`);
+            if (tabName.includes('lesson')) {
+                addContainer.innerHTML = `
+                    <button type="button"
+                        onclick="addlession(document.getElementById('course_id').value, '${sectionId}', 'lesson')"
+                        class="px-5 py-2.5 text-white bg-blue-600 rounded-lg hover:bg-blue-700 font-medium">
+                        + Add Lesson
+                    </button>
+                `;
+            } else if (tabName.includes('quiz')) {
+                addContainer.innerHTML = `
+                    <button type="button"
+                        onclick="quizlession(document.getElementById('course_id').value, '${sectionId}', 'quiz')"
+                        class="px-5 py-2.5 text-white bg-green-600 rounded-lg hover:bg-green-700 font-medium">
+                        + Add Quiz
+                    </button>
+                `;
+            }
+        });
+    });
+});
 
             // Set initial state based on edit_video_mode value
             var editVideoModeEl = document.getElementById("edit_video_mode");

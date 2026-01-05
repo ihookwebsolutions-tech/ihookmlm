@@ -6,6 +6,8 @@ namespace Admin\App\Models\PremiumLearning;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -24,7 +26,7 @@ class MPremiumLearningLessonInsert
         $video_mode = $request->input('video_mode');
         $lesson_status = $request->input('lesson_status');
         $created_on = now();
-        $created_by = Auth::guard('admin')->id(); // Adjust guard if needed
+        $created_by = 1;
 
         $video_path = '';
         $uploadedName = '';
@@ -47,7 +49,6 @@ class MPremiumLearningLessonInsert
                 $video_path = $request->input('embed_video');
             }
         }
-
         // Document Upload
         $doc_path = '';
         $uploadeddocName = '';
@@ -190,11 +191,13 @@ class MPremiumLearningLessonInsert
         $course_id = $request->query('sub1');
         $faq_question = $request->input('faqvalues');
         $faq_answer = $request->input('faqanswer');
+        $id = $request->input('faqanswer');
 
-        DB::table(config('ihook.prefix', '') . 'premium_courses_faq')->insert([
+        DB::table(config('services.ihook.prefix', 'ihook') . '_premium_courses_faq')->insert([
             'faq_question' => $faq_question,
             'faq_answer' => $faq_answer,
             'courses_id' => $course_id,
+            'id'=> $id
         ]);
     }
 
@@ -208,40 +211,109 @@ class MPremiumLearningLessonInsert
             $answer = $request->input("faqanswer{$i}");
 
             if ($question) {
-                DB::table(config('ihook.prefix', '') . 'premium_courses_faq')
+                DB::table(config('ihook.prefix', '') . '_premium_courses_faq')
                     ->where('faq_question', $question)
                     ->where('courses_id', $course_id)
                     ->update(['faq_answer' => $answer]);
             }
         }
     }
-
     public function insertSubCourse(Request $request)
     {
+        Log::info('=== insertSubCourse Started ===');
+
         $course_id = $request->query('sub1');
 
-        foreach ($request->except(['do', 'action', 'sub1']) as $key => $value) {
-            $exists = DB::table(config('ihook.prefix', '') . 'premium_courses')
-                ->where('course_key', trim($key))
-                ->where('course_id', $course_id)
-                ->exists();
+        if (!$course_id && Session::has('course_id')) {
+            $course_id = Session::get('course_id');
+            Log::info('Course ID retrieved from session', ['course_id' => $course_id]);
+        }
 
-            if ($exists) {
-                DB::table(config('ihook.prefix', '') . 'premium_courses')
-                    ->where('course_key', $key)
+        if (!$course_id) {
+            Log::warning('No course_id found in query (sub1) or session.');
+            return response()->json(['error' => 'Missing course_id. Please create a course first.'], 400);
+        }
+
+        Log::info('Using course_id for subcourse update:', ['course_id' => $course_id]);
+
+        $inputData = $request->except(['do', 'action', 'sub1', '_token']);
+        Log::info('Filtered request data:', $inputData);
+
+        $tableName = env('IHOOK_PREFIX') . '_premium_courses';
+        Log::info('Target table:', ['table' => $tableName]);
+
+        $processedCount = 0;
+        $insertedCount = 0;
+        $updatedCount = 0;
+
+        foreach ($inputData as $key => $value) {
+            $key = trim($key);
+
+            if (empty($key)) {
+                continue;
+            }
+
+            Log::debug('Processing field', [
+                'key' => $key,
+                'value_preview' => is_string($value) ? substr($value, 0, 200) : $value
+            ]);
+
+            try {
+                $exists = DB::table($tableName)
                     ->where('course_id', $course_id)
-                    ->update(['course_value' => $value]);
-            } else {
-                DB::table(config('ihook.prefix', '') . 'premium_courses')->insert([
+                    ->where('course_key', $key)
+                    ->exists();
+
+                if ($exists) {
+                    DB::table($tableName)
+                        ->where('course_id', $course_id)
+                        ->where('course_key', $key)
+                        ->update([
+                            'course_value' => is_string($value) ? $value : json_encode($value),
+                        ]);
+
+                    $updatedCount++;
+                    Log::info('Updated record', ['course_id' => $course_id, 'key' => $key]);
+                } else {
+                    DB::table($tableName)->insert([
+                        'course_id'     => $course_id,
+                        'course_key'    => $key,
+                        'course_value'  => is_string($value) ? $value : json_encode($value),
+                        'created_on'    => now(),
+                    ]);
+
+                    $insertedCount++;
+                    Log::info('Inserted new record', ['course_id' => $course_id, 'key' => $key]);
+                }
+
+                $processedCount++;
+            } catch (\Exception $e) {
+                Log::error('Failed to process field', [
                     'course_id' => $course_id,
-                    'course_key' => $key,
-                    'course_value' => $value,
-                    'created_on' => now(),
+                    'key'       => $key,
+                    'error'     => $e->getMessage(),
+                    'trace'     => $e->getTraceAsString()
                 ]);
             }
         }
 
-        return $course_id;
+        Log::info('=== insertSubCourse Completed ===', [
+            'course_id'       => $course_id,
+            'processed'       => $processedCount,
+            'inserted'        => $insertedCount,
+            'updated'         => $updatedCount,
+        ]);
+
+        return response()->json([
+            'success'   => true,
+            'message'   => 'Subcourses added successfully!',
+            'course_id' => $course_id,
+            'data'      => [
+                'processed' => $processedCount,
+                'inserted'  => $insertedCount,
+                'updated'   => $updatedCount
+            ]
+        ]);
     }
 
     public function addSubLesson(Request $request)
@@ -258,7 +330,7 @@ class MPremiumLearningLessonInsert
         };
 
         $created_on = now();
-        $created_by = Auth::guard('admin')->id();
+        $created_by =  1;
 
         foreach ($request->except(['do', 'action', 'sub1', 'sub2', 'sub3']) as $value) {
             if ($value !== '' && $value !== null) {

@@ -390,59 +390,42 @@ class DPremiumLearningLesson
     }
 
 
-
-    public static function showCourseFaq($records)
-    {
-        $id = $_GET['sub1'];
-        $course_id      = $id;
-        // $courses_name = MPremiumCourses::getCourses($id,'title');
-        //$totaltitle = MPremiumCourses::getCourses($id,'totaltitle');
-
-
-        $output .= '';
-        for ($i = 0;$i < count((array)$records);$i++) {
-
-            $faq_question = $records[$i]['faq_question'];
-            $faqanswer = $records[$i]['faq_answer'];
-            $faqid = $records[$i]['id'];
-            $j = $i + 1;
-            //  $output.='  <div class="elearn-faq row  ">
-
-            //  <span class="svg-icon svg-icon-primary svg-icon-2x">
-            //               <a href="javascript:void(0);"  title="Auto Login" onclick="removefaq('.$course_id.','.$faqid.');"><svg class="w-6 h-6 text-black dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-
-            //                                       <h4>Question ('.$j.')</h4>
-            //                                   </div>
-            //                                   <div class="elearn-curri-form col-xl-12 pb-5">
-
-            //                                       <textarea class="form-control form-control-solid subquest" name="faqquestion'.$j.'" placeholder="Enter FAQ question"  id="faqquestion" rows="7" value="'.$faq_question.'">'.$faq_question.'</textarea>
-            //                                   </div>
-            //                                   <div class="elearn-curri-form col-xl-12 pb-4">
-            //                                       <textarea class="form-control form-control-solid subans" name="faqanswer'.$j.'" placeholder="Enter FAQ Answer"  id="faqanswer" rows="7" value="'.$faqanswer.'">'.$faqanswer.'</textarea>
-            //                                   </div>
-            //                               </div>';
-
-            $output .= '<div class="mb-5">
-                <div class="flex mb-5 justify-between">
-
-                    <h3>Question ('.$j.')</h3>
-                    <a href="javascript:void(0);" title="Auto Login" onclick="removefaq('.$course_id.','.$faqid.');"><svg class="w-6 h-6 text-black dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 7h14m-9 3v8m4-8v8M10 3h4a1 1 0 0 1 1 1v3H9V4a1 1 0 0 1 1-1ZM6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z"/>
-                    </svg></a>
-                </div>
-                <div class="mb-5">
-                    <textarea class="block w-full px-0 text-sm text-black bg-white border-0 dark:bg-neutral-900 focus:ring-0 dark:text-white dark:placeholder-neutral-400 subquest" name="faqquestion'.$j.'" placeholder="Enter FAQ question"  id="faqquestion" rows="2" value="'.$faq_question.'">'.$faq_question.'</textarea>
-                </div>
-                <div class="mb-5">
-                    <textarea class="block w-full px-0 text-sm text-black bg-white border-0 dark:bg-neutral-900 focus:ring-0 dark:text-white dark:placeholder-neutral-400 subans" name="faqanswer'.$j.'" placeholder="Enter FAQ Answer"  id="faqanswer" rows="3" value="'.$faqanswer.'">'.$faqanswer.'</textarea>
-                </div>
-            </div>';
-
-        }
-
-        echo $output;
-
+public static function showCourseFaq($records, $course_id)
+{
+    if (count($records) === 0) {
+        return '<p class="text-neutral-500">No FAQs added yet.</p>';
     }
+
+    $output = '';
+    foreach ($records as $i => $faq) {
+        $faq_question = htmlspecialchars($faq->faq_question ?? '', ENT_QUOTES);
+        $faq_answer   = htmlspecialchars($faq->faq_answer ?? '', ENT_QUOTES);
+        $faqid        = $faq->id;
+        $j            = $i + 1;
+
+        $output .= '
+        <div class="mb-8 p-4 border border-neutral-300 dark:border-neutral-700 rounded-lg existing-faq-block">
+            <div class="flex mb-3 justify-between items-center">
+                <h3 class="font-medium">FAQ ' . $j . '</h3>
+                <a href="javascript:void(0);" onclick="removefaq(' . $course_id . ',' . $faqid . ');" class="text-red-600 hover:text-red-800">🗑 Remove</a>
+            </div>
+
+            <input type="hidden" name="existing_faq_id[]" value="' . $faqid . '">
+
+            <label class="block text-sm font-medium mb-1">Question</label>
+            <textarea name="existing_faq_question[]" rows="2" class="existing-question w-full p-2.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 focus:ring-neutral-500 focus:border-neutral-500 dark:bg-neutral-900 dark:text-white mb-3">'
+            . $faq_question .
+            '</textarea>
+
+            <label class="block text-sm font-medium mb-1">Answer</label>
+            <textarea name="existing_faq_answer[]" rows="4" class="existing-answer w-full p-2.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 focus:ring-neutral-500 focus:border-neutral-500 dark:bg-neutral-900 dark:text-white">'
+            . $faq_answer .
+            '</textarea>
+        </div>';
+    }
+
+    return $output;
+}
 
 
     public static function showSubLession($records)

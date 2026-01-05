@@ -45,6 +45,10 @@ return [
             'driver' => 'session',
             'provider' => 'members',
         ],
+        'admin' => [
+        'driver' => 'session',
+        'provider' => 'admins',
+    ],
     ],
 
 
@@ -72,17 +76,17 @@ return [
             'model' => env('AUTH_MODEL', User\App\Models\Member::class),
         ],
 
-     
+
             'members' => [
                 'driver' => 'eloquent',
                 'model' => User\App\Models\Member::class,
                 'table' => 'ihook_members_table',
             ],
-        
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+
+       'admins' => [
+        'driver' => 'eloquent',
+        'model' => User\App\Models\Admin::class,
+    ],
     ],
 
 
