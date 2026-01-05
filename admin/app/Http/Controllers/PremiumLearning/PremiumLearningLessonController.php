@@ -8,26 +8,20 @@ use Admin\App\Models\Middleware\MMatrixList;
 use Admin\App\Models\PremiumLearning\MPremiumCourses;
 use Admin\App\Models\PremiumLearning\MPremiumLearningLesson;
 use Admin\App\Models\PremiumLearning\MPremiumLearningLessonInsert;
+use DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Redirect;
-
+use Illuminate\Support\Facades\Validator;
 
 class PremiumLearningLessonController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware(function ($request, $next) {
-            if (!Auth::guard('admin')->check()) {
-                return redirect()->route('admin.login');
-            }
-            return $next($request);
-        });
-    }
 
     public function viewLessonDetails(Request $request)
     {
+
         try {
             $id = $request->query('sub1');
 
@@ -48,8 +42,8 @@ class PremiumLearningLessonController extends Controller
 
     public function viewLinkLession(Request $request)
     {
+        // AJAX endpoint - no auth needed
         try {
-            $id = $request->query('sub1');
             return response(MPremiumLearningLesson::viewlinklession());
         } catch (\Exception $e) {
             Session::flash('error_message', $e->getMessage());
@@ -59,6 +53,8 @@ class PremiumLearningLessonController extends Controller
 
     public function editELearning(Request $request)
     {
+
+
         try {
             $id = $request->query('sub1');
 
@@ -82,7 +78,6 @@ class PremiumLearningLessonController extends Controller
                 'course_id'        => $id,
             ];
 
-            // Repeated CloudFront calls in original - kept logic
             $output['bannerlogo'] = $output['banner_pathlink'];
             $output['banner_pathlink'] = MAmazonCloudFront::getCloudFrontUrl($output['bannerlogo']);
 
@@ -95,18 +90,40 @@ class PremiumLearningLessonController extends Controller
         }
     }
 
-    public function showLession()
+    public function showLession(Request $request)
     {
         try {
-            return response(MPremiumLearningLesson::showLession());
+            // Get course_id from route parameter or query
+            $course_id = $request->route('id') ?? $request->query('id');
+
+            if (!$course_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Course ID is required'
+                ], 400);
+            }
+
+            // Generate the lesson HTML using your existing logic
+            $html = MPremiumLearningLesson::showLession($course_id);
+
+            return response()->json([
+                'success' => true,
+                'html'    => $html
+            ]);
+
         } catch (\Exception $e) {
-            Session::flash('error_message', $e->getMessage());
-            return redirect()->route('admin.elearning.showlession');
+            \Log::error('showLession AJAX error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load lessons. Please try again.'
+            ], 500);
         }
     }
 
     public function editLession()
     {
+        // AJAX - no auth
         try {
             return response(MPremiumLearningLesson::editLession());
         } catch (\Exception $e) {
@@ -117,6 +134,8 @@ class PremiumLearningLessonController extends Controller
 
     public function addLession(Request $request)
     {
+
+
         try {
             $id = $request->query('sub1');
             $sub2 = $request->query('sub2');
@@ -125,7 +144,6 @@ class PremiumLearningLessonController extends Controller
 
             $lessonRecords = MPremiumLearningLesson::getLessions($id, $sub2);
 
-            // If lesson already has content → redirect to edit
             if (
                 !empty($lessonRecords) &&
                 (!empty($lessonRecords['lesson_description']) ||
@@ -182,6 +200,8 @@ class PremiumLearningLessonController extends Controller
 
     public function editShowLession(Request $request)
     {
+
+
         try {
             $id = $request->query('sub1');
             $lessonid = $request->query('sub2');
@@ -210,6 +230,8 @@ class PremiumLearningLessonController extends Controller
 
     public function insertLession(Request $request)
     {
+
+
         try {
             app('App\Models\MPremiumLearningLessonInsert')::insertLession();
             return redirect()->back();
@@ -241,6 +263,7 @@ class PremiumLearningLessonController extends Controller
 
     public function showCourseSubTitle()
     {
+        // AJAX - no auth
         try {
             return response(MPremiumLearningLesson::showCourseSubTitle());
         } catch (\Exception $e) {
@@ -249,52 +272,195 @@ class PremiumLearningLessonController extends Controller
         }
     }
 
-    public function insertCourseFaq(Request $request)
+    public function insertCourseFaq(Request $request, $course_id = 1)
     {
+        $course_id = $course_id
+            ?? $request->query('course_id')?? 1;
+        if (!$course_id && Session::has('course_id')) {
+            $course_id = Session::get('course_id');
+            Log::info('FAQ → Course ID retrieved from session', ['course_id' => $course_id]);
+        }
+
+        if (is_string($course_id) && str_starts_with(trim($course_id), '{')) {
+            $decoded = json_decode($course_id, true);
+
+            if (json_last_error() === JSON_ERROR_NONE && isset($decoded['course_id'])) {
+                $course_id = $decoded['course_id'];
+            }
+        }
+
+        $course_id = (int) $course_id;
+
+        if ($course_id <= 0) {
+            Log::warning('FAQ insert → Invalid course_id', ['course_id' => $course_id]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Course ID is missing or invalid. Please save the course first.'
+            ], 422);
+        }
+
+        $faq_question = trim($request->input('faqvalues', ''));
+
+        if ($faq_question === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'FAQ question is required'
+            ], 422);
+        }
+
         try {
-            app('App\Models\MPremiumLearningLessonInsert')::insertCourseFaq();
-            return redirect()->back();
+            $insertedId = DB::table(config('services.ihook.prefix', '') . '_premium_courses_faq')
+                ->insertGetId([
+                    'faq_question' => $faq_question,
+                    'faq_answer'   => '',
+                    'courses_id'   => $course_id,
+                ]);
+
+            return response()->json([
+                'success'   => true,
+                'message'   => 'FAQ added successfully!',
+                'id'        => $insertedId,
+                'course_id' => $course_id
+            ], 200);
+
         } catch (\Exception $e) {
-            Session::flash('error_message', $e->getMessage());
-            return redirect()->route('admin.elearning.insertcoursefaq');
+            Log::error('FAQ Insert Error', [
+                'error' => $e->getMessage(),
+                'course_id' => $course_id
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Database error. Please try again.'
+            ], 500);
         }
     }
 
-    public function showCourseFaq()
+
+    public function showCourseFaq(Request $request, $course_id = 1)
     {
+            $course_id = $request->query('sub1');
+
+            if (!$course_id && Session::has('course_id')) {
+                $course_id = Session::get('course_id');
+                Log::info('Course ID retrieved from session', ['course_id' => $course_id]);
+            }
+
+            if (!$course_id) {
+                Log::warning('No course_id found in query (sub1) or session.');
+                return response()->json(['error' => 'Missing course_id. Please create a course first.'], 400);
+            }
+
+            Log::info('Using course_id for subcourse update:', ['course_id' => $course_id]);
+
         try {
-            return response(MPremiumLearningLesson::showCourseFaq());
+            $html = MPremiumLearningLesson::showCourseFaq($request);
+
+            return response()->json([
+                'success' => true,
+                'html' => $html
+            ]);
         } catch (\Exception $e) {
-            Session::flash('error_message', $e->getMessage());
-            return redirect()->route('admin.elearning.showcoursefaq');
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error: ' . $e->getMessage()
+            ], 500);
         }
     }
 
-    public function insertCourseAnsFaq(Request $request)
+    public function insertCourseAnsFaq(Request $request, $id)
     {
+        $course_id = (int) $id;
+
+        if ($course_id <= 0) {
+            return response()->json(['success' => false, 'message' => 'Invalid course_id'], 400);
+        }
+
         try {
-            app('App\Models\MPremiumLearningLessonInsert')::insertCourseAnsFaq();
-            return redirect()->back();
+            DB::beginTransaction();
+
+            $new_questions = $request->input('faq_question', []);
+            $new_answers   = $request->input('faq_answer', []);
+
+            $insertData = [];
+            foreach ($new_questions as $index => $question) {
+                $question = trim($question ?? '');
+                $answer   = trim($new_answers[$index] ?? '');
+                if ($question !== '' && $answer !== '') {
+                    $insertData[] = [
+                        'courses_id'   => $course_id,
+                        'faq_question' => $question,
+                        'faq_answer'   => $answer,
+                    ];
+                }
+            }
+
+            if (!empty($insertData)) {
+                DB::table('ihook_premium_courses_faq')->insert($insertData);
+            }
+
+            $existing_ids       = $request->input('existing_faq_id', []);
+            $existing_questions = $request->input('existing_faq_question', []);
+            $existing_answers   = $request->input('existing_faq_answer', []);
+
+            foreach ($existing_ids as $index => $faq_id) {
+                $faq_id = (int)$faq_id;
+                if ($faq_id <= 0) continue;
+
+                $question = trim($existing_questions[$index] ?? '');
+                $answer   = trim($existing_answers[$index] ?? '');
+
+                if ($question !== '' && $answer !== '') {
+                    DB::table('ihook_premium_courses_faq')
+                        ->where('id', $faq_id)
+                        ->where('courses_id', $course_id)
+                        ->update([
+                            'faq_question' => $question,
+                            'faq_answer'   => $answer,
+                        ]);
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'FAQs updated successfully!'
+            ], 200);
+
         } catch (\Exception $e) {
-            Session::flash('error_message', $e->getMessage());
-            return redirect()->route('admin.elearning.insertcourseansfaq');
+            DB::rollBack();
+
+            \Log::error('FAQ Save Error', [
+                'course_id' => $course_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'FAQ save failed: ' . $e->getMessage()
+            ], 500);
         }
     }
 
     public function insertSubCourse(Request $request)
     {
-        try {
-            // call instance method and pass the request object
-            app(MPremiumLearningLessonInsert::class)->insertSubCourse($request);
-            return redirect()->back();
-        } catch (\Exception $e) {
-            Session::flash('error_message', $e->getMessage());
-            return redirect()->route('admin.elearning.insertsubcourse');
-        }
+        $response = app(MPremiumLearningLessonInsert::class)
+                        ->insertSubCourse($request);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Subcourses added successfully!',
+            'course_id' => $response
+        ], 200);
     }
 
     public function showSubLession()
     {
+        // AJAX
         try {
             return response(MPremiumLearningLesson::showSubLession());
         } catch (\Exception $e) {
@@ -305,6 +471,7 @@ class PremiumLearningLessonController extends Controller
 
     public function addSubLession()
     {
+        // AJAX
         try {
             return response(app('App\Models\MPremiumLearningLessonInsert')::addSubLession());
         } catch (\Exception $e) {
@@ -315,6 +482,7 @@ class PremiumLearningLessonController extends Controller
 
     public function getFaqLession()
     {
+        // AJAX
         try {
             return response(MPremiumLearningLesson::getFaqLession());
         } catch (\Exception $e) {
@@ -323,19 +491,41 @@ class PremiumLearningLessonController extends Controller
         }
     }
 
-    public function deleteFaqLession()
+    public function deleteFaqLession($course_id, $faq_id)
     {
-        try {
-            MPremiumLearningLesson::deleteFaqLession();
-            return redirect()->back();
-        } catch (\Exception $e) {
-            Session::flash('error_message', $e->getMessage());
-            return redirect()->route('admin.elearning.delete');
+        $course_id = (int) $course_id;
+        $faq_id = (int) $faq_id;
+
+        if ($course_id <= 0 || $faq_id <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid course ID or FAQ ID'
+            ], 400);
+        }
+
+        $deleted = DB::table('ihook_premium_courses_faq')
+            ->where('courses_id', $course_id)
+            ->where('id', $faq_id)
+            ->delete();
+
+        if ($deleted) {
+            return response()->json([
+                'success' => true,
+                'message' => 'FAQ deleted successfully!'
+            ]);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'FAQ not found or already deleted.'
+            ], 404);
         }
     }
 
+
     public function deleteLession()
     {
+
+
         try {
             MPremiumLearningLesson::deleteLession();
             return redirect()->back();
@@ -347,6 +537,8 @@ class PremiumLearningLessonController extends Controller
 
     public function insertCoursequiz(Request $request)
     {
+
+
         try {
             app('App\Models\MPremiumLearningLessonInsert')::insertCoursequiz();
             return redirect()->back();
@@ -358,6 +550,7 @@ class PremiumLearningLessonController extends Controller
 
     public function showCourseAddQuiz()
     {
+        // AJAX
         try {
             return response(MPremiumLearningLesson::showCourseAddQuiz());
         } catch (\Exception $e) {
@@ -368,6 +561,7 @@ class PremiumLearningLessonController extends Controller
 
     public function getQuiz()
     {
+        // AJAX
         try {
             return response(MPremiumLearningLesson::getquiz());
         } catch (\Exception $e) {
@@ -378,6 +572,8 @@ class PremiumLearningLessonController extends Controller
 
     public function updateQuizLession(Request $request)
     {
+
+
         try {
             app('App\Models\MPremiumLearningLessonInsert')::Updatequizlession();
             return redirect()->back();

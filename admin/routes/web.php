@@ -317,7 +317,7 @@ Route::prefix('admin')->group(function () {
         ->name('editelearning');
 
     Route::get('/elearning/showlession/{id}', [PremiumLearningLessonController::class, 'showLession'])
-        ->name('showlession');
+        ->name('elearning.showlession');
 
     Route::get('/elearning/editlession/{course}/{lesson}', [PremiumLearningLessonController::class, 'editLession'])
         ->name('editlession');
@@ -341,10 +341,10 @@ Route::prefix('admin')->group(function () {
         ->name('showfullreview');
 
     Route::get('/elearning/showcoursefaq/{id}', [PremiumLearningLessonController::class, 'showCourseFaq'])
-        ->name('showcoursefaq');
+        ->name('admin.elearning.showcoursefaq');
 
     Route::post('/elearning/insertcoursefaq/{id}', [PremiumLearningLessonController::class, 'insertCourseFaq'])
-        ->name('insertcoursefaq');
+        ->name('elearning.insertcoursefaq');
 
     Route::post('/elearning/insertcourseansfaq/{id}', [PremiumLearningLessonController::class, 'insertCourseAnsFaq'])
         ->name('insertcourseansfaq');
@@ -365,7 +365,7 @@ Route::prefix('admin')->group(function () {
         ->name('deletelession');
 
     Route::get('/elearning/editshowquiz/{course}/{lesson}/{type}', [PremiumLearningLessonController::class, 'editShowQuiz'])
-        ->name('editshowquiz');
+        ->name('elearning.editshowquiz');
 
     Route::get('/elearning/showcoursequiz/{id}', [PremiumLearningLessonController::class, 'showCoursequiz'])
         ->name('showcoursequiz');

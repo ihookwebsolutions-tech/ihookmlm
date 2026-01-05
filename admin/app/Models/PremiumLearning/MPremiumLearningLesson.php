@@ -21,12 +21,14 @@ namespace Admin\App\Models\PremiumLearning;
 use Admin\App\Display\PremiumLearning\DPremiumLearningLesson;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Session;
 
 class MPremiumLearningLesson
 {
     protected static function table($tableName)
     {
-        return DB::table($_ENV['IHOOK_PREFIX'] . $tableName);
+        return DB::table(config('services.ihook.prefix' , 'ihook'));
     }
 
     /**
@@ -34,7 +36,7 @@ class MPremiumLearningLesson
      */
     public static function getLessionDetails($id)
     {
-        return self::table('premium_courses_lesson')
+        return self::table('_premium_courses_lesson')
             ->where('course_id', $id)
             ->first();
     }
@@ -44,7 +46,7 @@ class MPremiumLearningLesson
      */
     public static function getquizdetails($id, $lessonid)
     {
-        return self::table('premium_setting_quiz')
+        return self::table('_premium_setting_quiz')
             ->where('course_id', $id)
             ->where('courses_lesson_id', $lessonid)
             ->first();
@@ -55,7 +57,7 @@ class MPremiumLearningLesson
      */
     public static function getLessions($id, $lessonid)
     {
-        return self::table('premium_courses_lesson')
+        return self::table('_premium_courses_lesson')
             ->where('course_id', $id)
             ->where('courses_lesson_id', $lessonid)
             ->first();
@@ -66,7 +68,7 @@ class MPremiumLearningLesson
      */
     public static function getVideoPath($id)
     {
-        $records = self::table('premium_courses_lesson')
+        $records = self::table('_premium_courses_lesson')
             ->where('course_id', $id)
             ->get();
 
@@ -79,7 +81,7 @@ class MPremiumLearningLesson
     public static function viewLession()
     {
         $id = request()->route('sub1');
-        $records = self::table('premium_courses_lesson')
+        $records = self::table('_premium_courses_lesson')
             ->where('course_id', $id)
             ->get();
 
@@ -89,7 +91,7 @@ class MPremiumLearningLesson
     public static function viewlinklession()
     {
         $id = request()->route('sub1');
-        $records = self::table('premium_courses_lesson')
+        $records = self::table('_premium_courses_lesson')
             ->where('course_id', $id)
             ->get();
 
@@ -99,36 +101,58 @@ class MPremiumLearningLesson
     /**
      * Main method to display all sections and lessons in edit page
      */
-    public static function showLession()
-    {
-        $id = request()->route('sub1');
-        $totaltitels = MPremiumCourses::getCourses($id, 'totaltitle');
-        $output = '';
 
-        for ($i = 0; $i < $totaltitels; $i++) {
-            $j = $i + 1;
-            $key = "subtitle" . $j;
-            $subtitle = MPremiumCourses::getCourses($id, $key);
+public static function showLession()
+{
+    // Laravel way: get from request instead of $_GET
+    $id = request()->query('sub1'); // or request('sub1')
 
-            $subtitleRecord = DB::table($_ENV['IHOOK_PREFIX'] . 'premium_courses')
-                ->where('course_id', $id)
-                ->where('course_key', $key)
-                ->first();
+    if (!$id) {
+        return ''; // or handle error as needed
+    }
 
-            $subtitle_id = $subtitleRecord?->id ?? 0;
+    // Get total number of sections (totaltitle)
+    $totalTitles = DB::table('premium_courses')
+        ->where('course_id', $id)
+        ->value('totaltitle');
 
-            $lessons = self::table('premium_courses_lesson')
-                ->where('courses_topics_id', $subtitle_id)
-                ->get();
+    $totalTitles = (int) $totalTitles;
+    $output = '';
 
-            if ($lessons->isNotEmpty()) {
-                $output .= '<div id="accordion-item-' . $j . '" class="mb-3">
+    $prefix = env('IHOOK_PREFIX');
+
+    for ($i = 0; $i < $totalTitles; $i++) {
+        $j   = $i + 1;
+        $key = "subtitle" . $j;
+
+        // Get subtitle value (e.g., subtitle1, subtitle2...)
+        $subtitle = DB::table('premium_courses')
+            ->where('course_id', $id)
+            ->value($key);
+
+        // Get the topic record to fetch its primary key (id)
+        $topicRecord = DB::table($prefix . 'premium_courses')
+            ->where('course_id', $id)
+            ->where('course_key', $key)
+            ->select('id')
+            ->first();
+
+        $subtitle_id = $topicRecord?->id ?? 0;
+
+        // Check if there are any lessons under this section
+        $lessons = DB::table($prefix . 'premium_courses_lesson')
+            ->where('courses_topics_id', $subtitle_id)
+            ->get();
+
+         if (count((array)$lessons) > 0) {
+
+                $output .= '<div id="accordion-item-'. $j .'" class="mb-3">
                      <h2>
                         <button type="button"
                            class="flex flex-col items-start w-full p-4 font-medium text-left text-black bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 rounded-lg focus:ring-0 transition-all"
-                           data-accordion-target="#accordion-body-' . $j . '" aria-expanded="false" aria-controls="accordion-body-' . $j . '">
+                           data-accordion-target="#accordion-body-'. $j .'" aria-expanded="false" aria-controls="accordion-body-'. $j .'">
                            <div class="flex items-center justify-between w-full">
-                                 <span>Section ' . $j . '</span>
+                                 <span>Section '. $j .'</span>
                                  <svg class="w-5 h-5 shrink-0 transition-transform" fill="currentColor"
                                     viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                                     <path fill-rule="evenodd"
@@ -136,33 +160,328 @@ class MPremiumLearningLesson
                                        clip-rule="evenodd"></path>
                                  </svg>
                            </div>
-                           <input placeholder="Section title (required)" id="subtitle' . $i . '" name="subtitle' . $i . '" value="' . $subtitle . '"
+                           <input placeholder="Section title (required)" id="subtitle'. $i .'" name="subtitle'. $i .'"  value="' . $subtitle . '"
                                  class="w-full mt-2 p-2 text-sm text-black dark:text-white bg-white border-2 border-dotted border-neutral-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-all subtitlelession" />
                         </button>
                      </h2>
-                     <div id="accordion-body-' . $j . '" class="hidden p-4 border border-t-0 border-neutral-200 rounded-b-xl bg-neutral-50">';
+                     <div id="accordion-body-'. $j .'" class="hidden p-4 border border-t-0 border-neutral-200 rounded-b-xl bg-neutral-50">
+                     ';
 
-                foreach ($lessons as $lesson) {
-                    if ($lesson->cource_type == '1') {
-                        $output .= self::renderLessonItem($id, $lesson, 1, 'addlession');
-                    } elseif ($lesson->cource_type == '2') {
-                        $output .= self::renderLessonItem($id, $lesson, 2, 'quizlession');
-                    } elseif ($lesson->cource_type == '3') {
-                        $output .= self::renderLessonItem($id, $lesson, 3, 'addlession');
+
+                $sql_check2 = "SELECT * FROM " . $_ENV['IHOOK_PREFIX'] . "premium_courses_lesson where course_id = " . $id . " and courses_topics_id=" . $subtitle_id . "";
+                $obj_check2 = new Bin_Query();
+                $obj_check2->executeQuery($sql_check2);
+                $subtitle2 = $obj_check2->records;
+
+                for ($m = 0; $m < count((array) $subtitle2); $m++) {
+                    if ($subtitle2[$m]['cource_type'] == '1') {
+
+                        $output .= '<div class="flex items-center justify-between bg-white p-4 rounded-lg shadow-md border my-3">
+                                 <!-- Left Side: Grab Icon, Lesson Symbol & Input Box -->
+                                 <div class="flex items-center space-x-3">
+                                     <!-- Grab Icon -->
+                                     <div class="cursor-grab text-black">
+                                         <svg xmlns="http://www.w3.org/2000/svg" width="6" height="14" viewBox="0 0 6 14">
+                                             <path
+                                                 d="M0,0H2V2H0V0ZM4,0H6V2H4V0ZM0,4H2V6H0V4ZM4,4H6V6H4V4ZM4,8H6v2H4V8ZM0,8H2v2H0V8ZM0,4H2V6H0V4ZM4,4H6V6H4V4ZM0,8H2v2H0V8ZM4,8H6v2H4V8Zm0,4H6v2H4V12ZM0,12H2v2H0V12Z">
+                                             </path>
+                                         </svg>
+                                     </div>
+
+                                     <!-- Lesson Symbol -->
+                                     <div class="text-blue-500">
+                                         <svg class="w-6 h-6 text-black dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
+                                             width="24" height="24" fill="none" viewBox="0 0 24 24">
+                                             <path stroke="currentColor" stroke-linejoin="round" stroke-width="2"
+                                                 d="M10 3v4a1 1 0 0 1-1 1H5m14-4v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Z" />
+                                         </svg>
+
+                                     </div>
+                                     '.$subtitle2[$m]['lesson_title'].'<input size="6">
+
+                                 </div>
+
+                                 <!-- Right Side: Actions -->
+                                 <div class="flex space-x-3">
+                                     <!-- Delete Button -->
+                                     <button id="delete-lesson-btn" type="button" onclick="deletelesson(' . $id . ',' . $subtitle2[$m]['courses_lesson_id'] . ',1);"
+                                         class="p-2 text-red-600 bg-red-100 rounded-lg hover:bg-red-200 focus:ring-2 focus:ring-red-300 focus:outline-none dark:bg-red-900 dark:hover:bg-red-800 dark:focus:ring-red-800">
+                                         <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                             fill="none" viewBox="0 0 24 24">
+                                             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                 d="M5 7h14m-9 3v8m4-8v8M10 3h4a1 1 0 0 1 1 1v3H9V4a1 1 0 0 1 1-1ZM6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z" />
+                                         </svg>
+
+                                         <span class="sr-only">Close</span>
+                                     </button>
+
+                                     <!-- Edit Button -->
+                                     <button id="edit-Lesson-btn" type="button" onclick="addlession(' . $id . ',' . $subtitle2[$m]['courses_lesson_id'] . ',1);"
+                                         class="p-2 text-green-600 bg-green-100 rounded-lg hover:bg-green-200 focus:ring-2 focus:ring-green-300 focus:outline-none dark:bg-green-900 dark:hover:bg-green-800 dark:focus:ring-green-800">
+                                         <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                             fill="none" viewBox="0 0 24 24">
+                                             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                 d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z" />
+                                         </svg>
+
+                                         <span class="sr-only">editLesson</span>
+                                     </button>
+
+                                 </div>
+                             </div>';
+
+                    } elseif ($subtitle2[$m]['cource_type'] == '2') {
+
+                        $output .= '<div class="flex items-center justify-between bg-white p-4 rounded-lg shadow-md border my-3">
+                                 <!-- Left Side: Grab Icon, Lesson Symbol & Input Box -->
+                                 <div class="flex items-center space-x-3">
+                                    <!-- Grab Icon -->
+                                    <div class="cursor-grab text-black">
+                                       <svg xmlns="http://www.w3.org/2000/svg" width="6" height="14" viewBox="0 0 6 14">
+                                             <path
+                                                d="M0,0H2V2H0V0ZM4,0H6V2H4V0ZM0,4H2V6H0V4ZM4,4H6V6H4V4ZM4,8H6v2H4V8ZM0,8H2v2H0V8ZM0,4H2V6H0V4ZM4,4H6V6H4V4ZM0,8H2v2H0V8ZM4,8H6v2H4V8Zm0,4H6v2H4V12ZM0,12H2v2H0V12Z">
+                                             </path>
+                                       </svg>
+                                    </div>
+
+                                    <!-- Lesson Symbol -->
+                                    <div class="text-blue-500">
+                                       <svg class="w-6 h-6 text-black dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
+                                             width="24" height="24" fill="none" viewBox="0 0 24 24">
+                                             <path stroke="currentColor" stroke-linejoin="round" stroke-width="2"
+                                                d="M10 3v4a1 1 0 0 1-1 1H5m14-4v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Z" />
+                                       </svg>
+
+                                    </div>
+                                    '.$subtitle2[$m]['lesson_title'].'<input size="6">
+                                 </div>
+
+                                 <!-- Right Side: Actions -->
+                                 <div class="flex space-x-3">
+                                    <!-- Delete Button -->
+                                    <button id="delete-lesson-btn" type="button" onclick="deletelesson(' . $id . ',' . $subtitle2[$m]['courses_lesson_id'] . ',2);"
+                                       class="p-2 text-red-600 bg-red-100 rounded-lg hover:bg-red-200 focus:ring-2 focus:ring-red-300 focus:outline-none dark:bg-red-900 dark:hover:bg-red-800 dark:focus:ring-red-800">
+                                       <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                             fill="none" viewBox="0 0 24 24">
+                                             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M5 7h14m-9 3v8m4-8v8M10 3h4a1 1 0 0 1 1 1v3H9V4a1 1 0 0 1 1-1ZM6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z" />
+                                       </svg>
+
+                                       <span class="sr-only">Close</span>
+                                    </button>
+
+                                    <!-- Edit Button -->
+                                    <button id="edit-Lesson-btn" type="button" onclick="quizlession(' . $id . ',' . $subtitle2[$m]['courses_lesson_id'] . ',2);"
+                                       class="p-2 text-green-600 bg-green-100 rounded-lg hover:bg-green-200 focus:ring-2 focus:ring-green-300 focus:outline-none dark:bg-green-900 dark:hover:bg-green-800 dark:focus:ring-green-800">
+                                       <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                             fill="none" viewBox="0 0 24 24">
+                                             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z" />
+                                       </svg>
+
+                                       <span class="sr-only">editLesson</span>
+                                    </button>
+
+                                 </div>
+                              </div>';
+
+                    } elseif ($subtitle2[$m]['cource_type'] == '3') {
+
+                        $output .= '<div class="flex items-center justify-between bg-white p-4 rounded-lg shadow-md border my-3">
+                                 <!-- Left Side: Grab Icon, Lesson Symbol & Input Box -->
+                                 <div class="flex items-center space-x-3">
+                                     <!-- Grab Icon -->
+                                     <div class="cursor-grab text-black">
+                                         <svg xmlns="http://www.w3.org/2000/svg" width="6" height="14" viewBox="0 0 6 14">
+                                             <path
+                                                 d="M0,0H2V2H0V0ZM4,0H6V2H4V0ZM0,4H2V6H0V4ZM4,4H6V6H4V4ZM4,8H6v2H4V8ZM0,8H2v2H0V8ZM0,4H2V6H0V4ZM4,4H6V6H4V4ZM0,8H2v2H0V8ZM4,8H6v2H4V8Zm0,4H6v2H4V12ZM0,12H2v2H0V12Z">
+                                             </path>
+                                         </svg>
+                                     </div>
+
+                                     <!-- Lesson Symbol -->
+                                     <div class="text-blue-500">
+                                         <svg class="w-6 h-6 text-black dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
+                                             width="24" height="24" fill="none" viewBox="0 0 24 24">
+                                             <path stroke="currentColor" stroke-linejoin="round" stroke-width="2"
+                                                 d="M10 3v4a1 1 0 0 1-1 1H5m14-4v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Z" />
+                                         </svg>
+
+                                     </div>
+                                     '.$subtitle2[$m]['lesson_title'].'<input size="6">
+                                 </div>
+
+                                 <!-- Right Side: Actions -->
+                                 <div class="flex space-x-3">
+                                     <!-- Delete Button -->
+                                     <button id="delete-lesson-btn" type="button" onclick="deletelesson(' . $id . ',' . $subtitle2[$m]['courses_lesson_id'] . ',3);"
+                                         class="p-2 text-red-600 bg-red-100 rounded-lg hover:bg-red-200 focus:ring-2 focus:ring-red-300 focus:outline-none dark:bg-red-900 dark:hover:bg-red-800 dark:focus:ring-red-800">
+                                         <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                             fill="none" viewBox="0 0 24 24">
+                                             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                 d="M5 7h14m-9 3v8m4-8v8M10 3h4a1 1 0 0 1 1 1v3H9V4a1 1 0 0 1 1-1ZM6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z" />
+                                         </svg>
+
+                                         <span class="sr-only">Close</span>
+                                     </button>
+
+                                     <!-- Edit Button -->
+                                     <button id="edit-Lesson-btn" type="button" onclick="addlession(' . $id . ',' . $subtitle2[$m]['courses_lesson_id'] . ',3);"
+                                         class="p-2 text-green-600 bg-green-100 rounded-lg hover:bg-green-200 focus:ring-2 focus:ring-green-300 focus:outline-none dark:bg-green-900 dark:hover:bg-green-800 dark:focus:ring-green-800">
+                                         <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                             fill="none" viewBox="0 0 24 24">
+                                             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                 d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z" />
+                                         </svg>
+
+                                         <span class="sr-only">editLesson</span>
+                                     </button>
+
+                                 </div>
+                             </div>';
+
                     }
                 }
 
-                $output .= self::renderTabsSection($j, $id, $subtitle_id);
-                $output .= '</div></div>';
+                $output .= '
+                        <!-- Tabs -->
+                        <ul class="flex flex-wrap gap-2 text-sm font-medium text-center" data-tab-group="tabs-'. $j .'">
+                            <li><button class="tab-button bg-neutral-100 p-2 px-4 rounded-lg" data-tab="lesson-'. $j .'"> '. __('Lesson') .' </button></li>
+                            <li><button class="tab-button bg-green-100 p-2 px-4 rounded-lg" data-tab="quiz-'. $j .'">' . __('Quiz') . '</button></li>
+                            <li><button class="tab-button bg-yellow-100 p-2 px-4 rounded-lg hidden" data-tab="assignment-'. $j .'">'. __('Assignment') .'</button></li>
+                        </ul>
+
+
+
+
+                        ';
+
+                $output .= '<!-- Tab Content -->
+                        <div id="tabs-'. $j .'">
+                           <div id="lesson-'. $j .'" class="tab-content mt-4 relative w-full" bis_skin_checked="1">
+                              <input type="text" placeholder="Enter Lesson title"
+                                 class="w-full p-3 text-sm text-black dark:text-white bg-white rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-all sublessionvalues" id="lessionvalues"  name="lessionvalues">
+                              <button type="button" onclick="submitLesson(' . $id . ',' . $subtitle_id . ',1);"
+                                 class="absolute top-0 end-0 p-2.5 h-full text-sm font-medium text-white bg-neutral-700 rounded-e-lg border border-blue-700 hover:bg-neutral-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-neutral-600 dark:hover:bg-neutral-700 dark:focus:ring-blue-800"><svg
+                                       class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"
+                                       viewBox="0 0 24 24">
+                                       <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M16 12H4m12 0-4 4m4-4-4-4m3-4h2a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-2"></path>
+                                 </svg>
+                              </button>
+                           </div>
+                           <div id="quiz-'. $j .'" class="hidden tab-content mt-4 relative w-full" bis_skin_checked="1">
+                              <input type="text" placeholder="Enter Quiz title"
+                                 class="w-full p-3 text-sm text-black dark:text-white bg-white rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-all subquizvalues" name="quizvalues"  value="" id="quizvalues">
+                              <button type="button" onclick="submitLesson(' . $id . ',' . $subtitle_id . ',2);"
+                                 class="absolute top-0 end-0 p-2.5 h-full text-sm font-medium text-white bg-neutral-700 rounded-e-lg border border-blue-700 hover:bg-neutral-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-neutral-600 dark:hover:bg-neutral-700 dark:focus:ring-blue-800"><svg
+                                       class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"
+                                       viewBox="0 0 24 24">
+                                       <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M16 12H4m12 0-4 4m4-4-4-4m3-4h2a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-2"></path>
+                                 </svg>
+                              </button>
+                           </div>
+                           <div id="assignment-'. $j .'" class="hidden tab-content mt-4 relative w-full" bis_skin_checked="1">
+                              <input type="text" placeholder="Enter Assignment title"
+                                 class="w-full p-3 text-sm text-black dark:text-white bg-white rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-all" name="assignmentvalues"  value="" id="assignmentvalues">
+                              <button type="button" onclick="submitLesson(' . $id . ',' . $subtitle_id . ',3);"
+                                 class="absolute top-0 end-0 p-2.5 h-full text-sm font-medium text-white bg-neutral-700 rounded-e-lg border border-blue-700 hover:bg-neutral-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-neutral-600 dark:hover:bg-neutral-700 dark:focus:ring-blue-800"><svg
+                                       class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"
+                                       viewBox="0 0 24 24">
+                                       <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M16 12H4m12 0-4 4m4-4-4-4m3-4h2a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-2"></path>
+                                 </svg>
+                              </button>
+                           </div>
+                        </div>
+                     </div>
+                  </div>';
+
             } else {
-                $output .= self::renderEmptySection($j, $subtitle, $id, $subtitle_id);
+
+                $output .= '
+                     <div id="accordion-item-'. $j .'" class="mb-3 check">
+                     <h2>
+                         <button type="button"
+                             class="flex flex-col items-start w-full p-4 font-medium text-left text-black bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 rounded-lg focus:ring-0 transition-all"
+                             data-accordion-target="#accordion-body-'. $j .'" aria-expanded="false" aria-controls="accordion-body-'. $j .'">
+                             <div class="flex items-center justify-between w-full">
+                                 <span>Section '. $j .'</span>
+                                 <svg class="w-5 h-5 shrink-0 transition-transform" fill="currentColor"
+                                     viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                     <path fill-rule="evenodd"
+                                         d="M5.23 7.21a.75.75 0 011.06 0L10 10.94l3.71-3.73a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.27a.75.75 0 010-1.06z"
+                                         clip-rule="evenodd"></path>
+                                 </svg>
+                             </div>
+                             <input placeholder="Section title (required)" id="subtitle'. $j .'" name="subtitle'. $j .'"   value="' . $subtitle . '"
+                                 class="w-full mt-2 p-2 text-sm text-black dark:text-white bg-white border-2 border-dotted border-neutral-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-all subtitlelession" />
+                         </button>
+                     </h2>
+                     <div id="accordion-body-'. $j .'" class="hidden p-4 border border-t-0 border-neutral-200 rounded-b-xl bg-neutral-50">
+                         <!-- Tabs -->
+                         <ul class="flex flex-wrap gap-2 text-sm font-medium text-center" data-tab-group="tabs-'. $j .'">
+                             <li><button class="tab-button bg-neutral-100 p-2 px-4 rounded-lg" data-tab="lesson-'. $j .'">Lesson</button></li>
+                             <li><button class="tab-button bg-green-100 p-2 px-4 rounded-lg" data-tab="quiz-'. $j .'">Quiz</button></li>
+                             <li><button class="tab-button bg-yellow-100 p-2 px-4 rounded-lg hidden" data-tab="assignment-'. $j .'">Assignment</button></li>
+                         </ul>
+
+                           <!-- Tab Content -->
+                           <div id="tabs-'. $j .'">
+                              <div id="lesson-'. $j .'" class="tab-content mt-4 relative w-full" bis_skin_checked="1">
+                                 <input type="text" placeholder="Enter Lesson title"
+                                    class="w-full p-3 text-sm text-black dark:text-white bg-white rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-all sublessionvalues" id="lessionvalues"  name="lessionvalues">
+                                 <button type="button" onclick="submitLesson(' . $id . ',' . $subtitle_id . ',1);"
+                                    class="absolute top-0 end-0 p-2.5 h-full text-sm font-medium text-white bg-neutral-700 rounded-e-lg border border-blue-700 hover:bg-neutral-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-neutral-600 dark:hover:bg-neutral-700 dark:focus:ring-blue-800"><svg
+                                          class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"
+                                          viewBox="0 0 24 24">
+                                          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                             d="M16 12H4m12 0-4 4m4-4-4-4m3-4h2a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-2"></path>
+                                    </svg>
+                                 </button>
+                              </div>
+                              <div id="quiz-'. $j .'" class="hidden tab-content mt-4 relative w-full" bis_skin_checked="1">
+                                 <input type="text" placeholder="Enter Quiz title"
+                                    class="w-full p-3 text-sm text-black dark:text-white bg-white rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-all subquizvalues" name="quizvalues"  value="" id="quizvalues">
+                                 <button type="button" onclick="submitLesson(' . $id . ',' . $subtitle_id . ',2);"
+                                    class="absolute top-0 end-0 p-2.5 h-full text-sm font-medium text-white bg-neutral-700 rounded-e-lg border border-blue-700 hover:bg-neutral-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-neutral-600 dark:hover:bg-neutral-700 dark:focus:ring-blue-800"><svg
+                                          class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"
+                                          viewBox="0 0 24 24">
+                                          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                             d="M16 12H4m12 0-4 4m4-4-4-4m3-4h2a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-2"></path>
+                                    </svg>
+                                 </button>
+                              </div>
+                              <div id="assignment-'. $j .'" class="hidden tab-content mt-4 relative w-full" bis_skin_checked="1">
+                                 <input type="text" placeholder="Enter Assignment title"
+                                    class="w-full p-3 text-sm text-black dark:text-white bg-white rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-all" name="assignmentvalues"  value="" id="assignmentvalues">
+                                 <button type="button" onclick="submitLesson(' . $id . ',' . $subtitle_id . ',3);"
+                                    class="absolute top-0 end-0 p-2.5 h-full text-sm font-medium text-white bg-neutral-700 rounded-e-lg border border-blue-700 hover:bg-neutral-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-neutral-600 dark:hover:bg-neutral-700 dark:focus:ring-blue-800"><svg
+                                          class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"
+                                          viewBox="0 0 24 24">
+                                          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                             d="M16 12H4m12 0-4 4m4-4-4-4m3-4h2a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-2"></path>
+                                    </svg>
+                                 </button>
+                              </div>
+                         </div>
+                     </div>
+                 </div>
+                     ';
+
+                // $out.='  <div data-repeater-create="" class="btn btn btn-focus m-btn m-btn--icon" onclick="addlession('.$id.','.$subtitle_id.');" "  id="addsublesson">
+                //             <span >
+                //                 <span>'.MText::getWords('ADD').'</span>
+                //             </span>
+                //         </div> ';
             }
+            //     $output.='</div>m dhjui[]
+            // </div></div>';
         }
 
-        return $output;
-    }
-
-    // Helper to render lesson item (to avoid code duplication)
+    return $output;
+}
     private static function renderLessonItem($courseId, $lesson, $type, $jsFunction)
     {
         return '<div class="flex items-center justify-between bg-white p-4 rounded-lg shadow-md border my-3">
@@ -259,7 +578,7 @@ class MPremiumLearningLesson
     public static function showReview()
     {
         $id = request()->route('sub1');
-        $records = self::table('premium_courses_lesson')
+        $records = self::table('_premium_courses_lesson')
             ->where('course_id', $id)
             ->get();
 
@@ -269,7 +588,7 @@ class MPremiumLearningLesson
     public static function showFullReview()
     {
         $id = request()->route('sub1');
-        $records = self::table('premium_courses_lesson')
+        $records = self::table('_premium_courses_lesson')
             ->where('course_id', $id)
             ->get();
 
@@ -278,7 +597,7 @@ class MPremiumLearningLesson
 
     public static function getCourseDetails($id, $key)
     {
-        return DB::table($_ENV['IHOOK_PREFIX'] . 'premium_courses')
+        return DB::table($_ENV['IHOOK_PREFIX'] . '_premium_courses')
             ->where('course_id', $id)
             ->where('course_key', $key)
             ->value('course_value');
@@ -293,7 +612,7 @@ class MPremiumLearningLesson
 
     public static function getVideototalPath($id, $lessonid)
     {
-        return self::table('premium_courses_lesson_path')
+        return self::table('_premium_courses_lesson_path')
             ->where('course_id', $id)
             ->where('sub_cource_id', $lessonid)
             ->where('course_key', 'video_path')
@@ -302,7 +621,7 @@ class MPremiumLearningLesson
 
     public static function getcoursesubCourses($id, $key, $i)
     {
-        return self::table('premium_courses_lesson_path')
+        return self::table('_premium_courses_lesson_path')
             ->where('course_id', $id)
             ->where('sub_cource_id', $key)
             ->where('course_key', 'video_path')
@@ -310,20 +629,35 @@ class MPremiumLearningLesson
             ->first();
     }
 
-    public static function showCourseFaq()
-    {
-        $course_id = request()->route('sub1');
-        $records = self::table('premium_courses_faq')
-            ->where('courses_id', $course_id)
-            ->get();
 
-        return DPremiumLearningLesson::showCourseFaq($records);
-    }
+
+    public static function showCourseFaq(Request $request)
+{
+ $course_id = $request->query('sub1');
+
+        if (!$course_id && Session::has('course_id')) {
+            $course_id = Session::get('course_id');
+            Log::info('Course ID retrieved from session', ['course_id' => $course_id]);
+        }
+
+        if (!$course_id) {
+            Log::warning('No course_id found in query (sub1) or session.');
+            return response()->json(['error' => 'Missing course_id. Please create a course first.'], 400);
+        }
+
+        Log::info('Using course_id for subcourse update:', ['course_id' => $course_id]);
+
+    $sql = "SELECT * FROM " . $_ENV['IHOOK_PREFIX'] . "_premium_courses_faq
+            WHERE courses_id = " . (int)$course_id;
+
+    $records = DB::select($sql);
+    return DPremiumLearningLesson::showCourseFaq($records ,$course_id);
+}
 
     public static function showCourseAddQuiz()
     {
         $course_id = request()->route('sub1');
-        $records = self::table('premium_courses_quiz')
+        $records = self::table('_premium_courses_quiz')
             ->where('courses_id', $course_id)
             ->get();
 
@@ -333,7 +667,7 @@ class MPremiumLearningLesson
     public static function showSubLession()
     {
         $course_id = request()->route('sub1');
-        $records = DB::table($_ENV['IHOOK_PREFIX'] . 'premium_courses')
+        $records = DB::table($_ENV['IHOOK_PREFIX'] . '_premium_courses')
             ->where('courses_id', $course_id)
             ->get();
 
@@ -343,24 +677,11 @@ class MPremiumLearningLesson
     public static function getFaqLession()
     {
         $course_id = request()->route('sub1');
-        $records = self::table('premium_courses_faq')
+        $records = self::table('_premium_courses_faq')
             ->where('courses_id', $course_id)
             ->get();
 
         return DPremiumLearningLesson::getFaqLession($records);
-    }
-
-    public static function deleteFaqLession()
-    {
-        $course_id = request()->route('sub1');
-        $fid = request()->route('sub2');
-
-        self::table('premium_courses_faq')
-            ->where('courses_id', $course_id)
-            ->where('id', $fid)
-            ->delete();
-
-        return redirect($_ENV['BCPATH'] . "/elearning/editelearning/" . $course_id);
     }
 
     public static function deleteLession()
@@ -368,7 +689,7 @@ class MPremiumLearningLesson
         $course_id = request()->route('sub1');
         $lessionid = request()->route('sub2');
 
-        self::table('premium_courses_lesson')
+        self::table('_premium_courses_lesson')
             ->where('course_id', $course_id)
             ->where('courses_lesson_id', $lessionid)
             ->delete();
@@ -379,7 +700,7 @@ class MPremiumLearningLesson
     public static function getquiz()
     {
         $course_id = request()->route('sub1');
-        $records = self::table('premium_courses_quiz')
+        $records = self::table('_premium_courses_quiz')
             ->where('courses_id', $course_id)
             ->get();
 
@@ -391,7 +712,7 @@ class MPremiumLearningLesson
         $course_id = request()->route('sub1');
         $fid = request()->route('sub2');
 
-        self::table('premium_courses_faq')
+        self::table('_premium_courses_faq')
             ->where('courses_id', $course_id)
             ->where('id', $fid)
             ->delete();
@@ -410,7 +731,7 @@ class MPremiumLearningLesson
             $key = "subtitle" . $j;
             $subtitle = MPremiumCourses::getCourses($id, $key);
 
-            $subtitleRecord = DB::table($_ENV['IHOOK_PREFIX'] . 'premium_courses')
+            $subtitleRecord = DB::table($_ENV['IHOOK_PREFIX'] . '_premium_courses')
                 ->where('course_id', $id)
                 ->where('course_key', $key)
                 ->first();

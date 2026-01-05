@@ -44,17 +44,24 @@ class PremiumCoursesController extends Controller
     }
 }
 
-    public function insertCourse(Request $request)
-    {
-        try {
-            MAdminActivityLog::log('COURSES - Add');
-            (new MPremiumInsertCourse())->insertCourse($request);
-            return redirect()->back();
-        } catch (\Exception $e) {
-            Session::flash('error_message', $e->getMessage());
-            return redirect()->route('admin.elearning.insertcourse');
-        }
+   public function insertCourse(Request $request)
+{
+    try {
+        $courseId = (new MPremiumInsertCourse())->insertCourse($request);
+        return response()->json([
+            'success' => true,
+            'course_id' => $courseId,
+            'message' => 'Course added successfully'
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Course insert failed: ' . $e->getMessage()); // Log for debug
+
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ], 500);
     }
+}
 
     public function finalStage()
     {

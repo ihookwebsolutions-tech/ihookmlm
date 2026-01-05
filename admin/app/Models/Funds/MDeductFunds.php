@@ -111,6 +111,7 @@ class MDeductFunds
             foreach ($request->user_list as $value) {
                 // Use the correct variable ($value)
                 $member = Member::where('members_username', $value)->first();
+                // dd($member);
                 $transaction_id = "#" . substr(number_format(time() * rand(), 0, '', ''), 0, 9);
                 $report = new Reports();
                 $report->timestamps = false;
@@ -126,7 +127,7 @@ class MDeductFunds
                 $report->save();
                 }
 
-          
+
         // Redirect with success message
         return redirect()->back()->with('success_message', 'Amount transferred successfully!');
     }
